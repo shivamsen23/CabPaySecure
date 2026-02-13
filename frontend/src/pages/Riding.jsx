@@ -11,10 +11,22 @@ const Riding = () => {
     const { socket } = useContext(SocketContext)
     const navigate = useNavigate()
 
-    socket.on("ride-ended", () => {
-        navigate('/home')
-    })
+useEffect(() => {
 
+    if (!socket) return
+
+    const handleRideEnded = (rideData) => {
+        console.log("🏁 ride-ended received in Riding page", rideData)
+        navigate('/home')
+    }
+
+    socket.on("ride-ended", handleRideEnded)
+
+    return () => {
+        socket.off("ride-ended", handleRideEnded)
+    }
+
+}, [socket, navigate])
 
     return (
         <div className='h-screen'>

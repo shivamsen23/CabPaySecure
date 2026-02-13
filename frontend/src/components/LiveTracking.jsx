@@ -1,68 +1,71 @@
 import React, { useState, useEffect } from 'react'
-import { LoadScript, GoogleMap, Marker } from '@react-google-maps/api'
+import { GoogleMap, Marker, useJsApiLoader } from '@react-google-maps/api'
 
 const containerStyle = {
     width: '100%',
     height: '100%',
-};
+}
 
-const center = {
-    lat: -3.745,
-    lng: -38.523
-};
+const defaultCenter = {
+    lat: 28.6139,   // safer default (Delhi)
+    lng: 77.2090,
+}
 
 const LiveTracking = () => {
-    const [ currentPosition, setCurrentPosition ] = useState(center);
+
+    const [currentPosition, setCurrentPosition] = useState(defaultCenter)
+
+    // ✅ Proper way to load Google Maps
+    const { isLoaded } = useJsApiLoader({
+        googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY
+    })
 
     useEffect(() => {
-        navigator.geolocation.getCurrentPosition((position) => {
-            const { latitude, longitude } = position.coords;
-            setCurrentPosition({
-                lat: latitude,
-                lng: longitude
-            });
-        });
 
-        const watchId = navigator.geolocation.watchPosition((position) => {
-            const { latitude, longitude } = position.coords;
-            setCurrentPosition({
-                lat: latitude,
-                lng: longitude
-            });
-        });
+        if (!navigator.geolocation) {
+            console.log("Geolocation not supported")
+            return
+        }
 
-        return () => navigator.geolocation.clearWatch(watchId);
-    }, []);
+        // ✅ Only ONE tracker needed
+        const watchId = navigator.geolocation.watchPosition(
+            (position) => {
 
-    useEffect(() => {
-        const updatePosition = () => {
-            navigator.geolocation.getCurrentPosition((position) => {
-                const { latitude, longitude } = position.coords;
+                const { latitude, longitude } = position.coords
 
-                console.log('Position updated:', latitude, longitude);
+                console.log('📍 Position updated:', latitude, longitude)
+
                 setCurrentPosition({
                     lat: latitude,
                     lng: longitude
-                });
-            });
-        };
+                })
+            },
+            (error) => {
+                console.log("❌ Location error:", error)
+            },
+            {
+                enableHighAccuracy: true,
+                maximumAge: 0,
+                timeout: 5000
+            }
+        )
 
-        updatePosition(); // Initial position update
+        // ✅ Cleanup
+        return () => navigator.geolocation.clearWatch(watchId)
 
-        const intervalId = setInterval(updatePosition, 1000); // Update every 10 seconds
+    }, [])
 
-    }, []);
+    // Prevent map render before script loads
+    if (!isLoaded) return <div>Loading Map...</div>
 
     return (
-        <LoadScript googleMapsApiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY}>
-            <GoogleMap
-                mapContainerStyle={containerStyle}
-                center={currentPosition}
-                zoom={15}
-            >
-                <Marker position={currentPosition} />
-            </GoogleMap>
-        </LoadScript>
+        <GoogleMap
+            mapContainerStyle={containerStyle}
+            center={currentPosition}
+            zoom={15}
+        >
+            <Marker position={currentPosition} />
+        </GoogleMap>
     )
 }
 
